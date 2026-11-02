@@ -14,3 +14,5 @@ build/
 *.xml
 data/samples/
 !data/samples/.gitkeep
+out/
+!out/.gitkeep
