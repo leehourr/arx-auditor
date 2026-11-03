@@ -1,0 +1,73 @@
+<?xml version="1.0" ?>
+<NessusClientData_v2>
+  <Report name="acmecorp-infra-2026-11" xmlns:cm="http://www.nessus.org/cm">
+
+    <ReportHost name="10.0.1.20">
+      <HostProperties>
+        <tag name="host-ip">10.0.1.20</tag>
+        <tag name="operating-system">Ubuntu 20.04 LTS</tag>
+      </HostProperties>
+
+      <!-- CVE finding: TLS 1.0 -->
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="2"
+                  pluginID="104743" pluginName="TLS Version 1.0 Protocol Detection"
+                  pluginFamily="General">
+        <description>The remote service accepts connections encrypted using TLS 1.0. TLS 1.0 has known cryptographic weaknesses.</description>
+        <solution>Disable TLS 1.0 and enable TLS 1.2 and 1.3.</solution>
+        <risk_factor>Medium</risk_factor>
+        <cvss_base_score>6.1</cvss_base_score>
+        <cve>CVE-2011-3389</cve>
+      </ReportItem>
+
+      <!-- CVE finding: OpenSSH outdated -->
+      <ReportItem port="22" svc_name="ssh" protocol="tcp" severity="3"
+                  pluginID="71049" pluginName="OpenSSH &lt; 9.3 Multiple Vulnerabilities"
+                  pluginFamily="Misc.">
+        <description>The version of OpenSSH installed is prior to 9.3 and is affected by multiple vulnerabilities.</description>
+        <solution>Upgrade OpenSSH to version 9.3 or later.</solution>
+        <risk_factor>High</risk_factor>
+        <cvss_base_score>7.8</cvss_base_score>
+        <cve>CVE-2023-38408</cve>
+      </ReportItem>
+
+      <!-- CIS compliance failure -->
+      <ReportItem port="0" svc_name="general" protocol="tcp" severity="2"
+                  pluginID="21156" pluginName="CIS Compliance Check"
+                  pluginFamily="Policy Compliance">
+        <cm:compliance-check-name>CIS Amazon Web Services Foundations 1.3 - Ensure credentials unused for 90 days or greater are disabled</cm:compliance-check-name>
+        <cm:compliance-result>FAILED</cm:compliance-result>
+        <cm:compliance-actual-value>IAM user 'svc-deploy' last used 187 days ago, still active.</cm:compliance-actual-value>
+        <description>Stale IAM credentials increase the attack surface if compromised.</description>
+        <solution>Disable or remove IAM credentials unused for 90 or more days.</solution>
+        <risk_factor>Medium</risk_factor>
+      </ReportItem>
+    </ReportHost>
+
+    <ReportHost name="10.0.1.21">
+      <HostProperties>
+        <tag name="host-ip">10.0.1.21</tag>
+        <tag name="operating-system">Ubuntu 20.04 LTS</tag>
+      </HostProperties>
+
+      <!-- Duplicate: same TLS 1.0 plugin on a second host — dedupe should collapse this -->
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="2"
+                  pluginID="104743" pluginName="TLS Version 1.0 Protocol Detection"
+                  pluginFamily="General">
+        <description>The remote service accepts connections encrypted using TLS 1.0.</description>
+        <solution>Disable TLS 1.0 and enable TLS 1.2 and 1.3.</solution>
+        <risk_factor>Medium</risk_factor>
+        <cvss_base_score>6.1</cvss_base_score>
+        <cve>CVE-2011-3389</cve>
+      </ReportItem>
+
+      <!-- Informational — severity 0, should be skipped -->
+      <ReportItem port="80" svc_name="http" protocol="tcp" severity="0"
+                  pluginID="10107" pluginName="HTTP Server Type and Version"
+                  pluginFamily="Web Servers">
+        <description>The remote web server discloses its type and version in the Server header.</description>
+        <risk_factor>None</risk_factor>
+      </ReportItem>
+    </ReportHost>
+
+  </Report>
+</NessusClientData_v2>

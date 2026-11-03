@@ -1,0 +1,44 @@
+{
+  "issues": [
+    {
+      "name": "Cross-site scripting (reflected)",
+      "host": "https://app.acmecorp.internal",
+      "path": "/search",
+      "severity": "High",
+      "confidence": "Certain",
+      "issueDetail": "The 'q' parameter is reflected unsanitised into the response body."
+    },
+    {
+      "name": "SQL injection",
+      "host": "https://app.acmecorp.internal",
+      "path": "/api/users",
+      "severity": "High",
+      "confidence": "Firm",
+      "issueDetail": "The 'id' parameter is vulnerable to error-based SQL injection (MySQL)."
+    },
+    {
+      "name": "Insecure direct object reference",
+      "host": "https://app.acmecorp.internal",
+      "path": "/api/invoices/1042",
+      "severity": "Medium",
+      "confidence": "Firm",
+      "issueDetail": "Authenticated user can access invoices belonging to other accounts by iterating the numeric id."
+    },
+    {
+      "name": "Missing HTTP Strict-Transport-Security header",
+      "host": "https://app.acmecorp.internal",
+      "path": "/",
+      "severity": "Low",
+      "confidence": "Certain",
+      "issueDetail": "The application does not set the HSTS header, allowing downgrade attacks."
+    },
+    {
+      "name": "Cross-site scripting (reflected)",
+      "host": "https://app.acmecorp.internal",
+      "path": "/feedback",
+      "severity": "High",
+      "confidence": "Firm",
+      "issueDetail": "The 'msg' parameter is also vulnerable to reflected XSS — duplicate of /search finding."
+    }
+  ]
+}

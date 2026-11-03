@@ -10,9 +10,12 @@ build/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+# ignore real client scan files, but allow the sample fixtures
 *.nessus
 *.xml
 data/samples/
 !data/samples/.gitkeep
+!data/samples/burp.json
+!data/samples/scan.nessus
 out/
 !out/.gitkeep
