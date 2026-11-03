@@ -1,10 +1,10 @@
 """
 Scratch runner — stream the graph in two modes to debug.
-Not part of the package. Delete or keep for dev reference.
+Switch between v1 (conditional edge) and v2 (Command) by changing the import.
 
     python scratch_run.py
 """
-from arx_auditor.graph import app
+from arx_auditor.graph import build_graph_v1, build_graph_v2
 
 init = {
     "findings": [],
@@ -15,29 +15,25 @@ init = {
     "report_path": "",
 }
 
-print("=" * 60)
-print("stream_mode='updates'  — delta each node returned")
-print("=" * 60)
-for chunk in app.stream(init, stream_mode="updates"):
-    node, update = next(iter(chunk.items()))
-    findings = update.get("findings", [])
-    retrieved = update.get("retrieved", {})
-    if findings:
-        print(f"  [{node}] findings: {len(findings)}")
-        for f in findings:
-            print(f"    {f['id']}  {f['source']:6s}  {f['title'][:60]}")
-    elif retrieved is not None and "retrieved" in update:
-        print(f"  [{node}] retrieved control text for {len(retrieved)} control_ids")
-    else:
-        print(f"  [{node}] {update}")
+for label, app in [("v1 — conditional edge", build_graph_v1().compile()),
+                   ("v2 — Command",           build_graph_v2().compile())]:
+    print("=" * 60)
+    print(f"  {label}")
+    print("=" * 60)
+    for chunk in app.stream(init, stream_mode="updates"):
+        node, update = next(iter(chunk.items()))
+        findings  = update.get("findings",     [])
+        retrieved = update.get("retrieved",    None)
+        needs_rev = update.get("needs_review", [])
 
-print()
-print("=" * 60)
-print("stream_mode='values'   — full state snapshot after each node")
-print("=" * 60)
-for chunk in app.stream(init, stream_mode="values"):
-    print(
-        f"  findings={len(chunk['findings']):3d}  "
-        f"retrieved={len(chunk['retrieved']):3d}  "
-        f"verdicts={len(chunk['verdicts']):3d}"
-    )
+        if findings:
+            print(f"  [{node}] findings: {len(findings)}")
+            for f in findings:
+                print(f"    {f['id']}  fw={f['framework']:6s}  cid={f['control_id'] or '(none)':35s}  {f['title'][:45]}")
+        elif retrieved is not None:
+            print(f"  [{node}] retrieved: {len(retrieved)} control_ids")
+        elif needs_rev:
+            print(f"  [{node}] manual_triage: {needs_rev}")
+        else:
+            print(f"  [{node}]")
+    print()
