@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "arx-auditor"
@@ -9,8 +9,12 @@ description = "Scanner output → classified, drafted audit findings"
 requires-python = ">=3.11"
 dependencies = [
     "langgraph~=1.2",
-    "anthropic>=0.40",
+    "langchain-anthropic>=1.7",
+    "langgraph-checkpoint-sqlite>=3.1",
     "pydantic>=2.0",
+    "chromadb>=1.5",
+    "cohere>=7.3",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -19,6 +23,7 @@ dev = [
     "pytest-asyncio>=0.24",
     "ruff>=0.6",
     "mypy>=1.11",
+    "langgraph-cli>=0.4",
 ]
 
 [tool.setuptools.packages.find]

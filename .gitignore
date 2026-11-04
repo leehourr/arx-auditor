@@ -19,3 +19,4 @@ data/samples/
 !data/samples/scan.nessus
 out/
 !out/.gitkeep
+*.db

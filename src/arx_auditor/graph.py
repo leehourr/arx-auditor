@@ -1,22 +1,31 @@
+import sqlite3
+
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
+from langgraph.store.memory import InMemoryStore
+from langgraph.store.sqlite import SqliteStore
 
 from arx_auditor.classify import classify_one, fan_out_findings
+from arx_auditor.gate import gate
 from arx_auditor.parse import normalize, parse_scans
 from arx_auditor.retrieve import retrieve
 from arx_auditor.state import AuditState
 
 # ---------------------------------------------------------------------------
-# M6 — Send fan-out topology
+# M6 + M9 — Send fan-out → HITL gate topology
 #
 # Shape:
 #   parse_scans → normalize → retrieve
-#                                └─(fan_out_findings)──▶ classify_one ──▶ END
-#                                  [one Send per finding; N copies run in parallel]
+#                                └─(fan_out_findings)──▶ classify_one ──┐
+#                                  [one Send per finding]                │
+#                                                                        ▼
+#                                                                      gate ──▶ END
+#                                                                  [interrupt() on
+#                                                                   Suppress/Exception]
 #
-# fan_out_findings is a routing function (returns list[Send]), not a node.
-# classify_one receives a payload dict, not the full AuditState.
-# All classify_one copies append into verdicts via the operator.add reducer (M2).
+# All classify_one copies converge before gate runs (scatter-gather).
+# gate reads verdicts (append-reduced), writes final_verdicts (replace).
 # ---------------------------------------------------------------------------
 
 
@@ -27,12 +36,14 @@ def build_graph() -> StateGraph:
     g.add_node("normalize", normalize)
     g.add_node("retrieve", retrieve)
     g.add_node("classify_one", classify_one)
+    g.add_node("gate", gate)
 
     g.add_edge(START, "parse_scans")
     g.add_edge("parse_scans", "normalize")
     g.add_edge("normalize", "retrieve")
     g.add_conditional_edges("retrieve", fan_out_findings, ["classify_one"])
-    g.add_edge("classify_one", END)
+    g.add_edge("classify_one", "gate")
+    g.add_edge("gate", END)
 
     return g
 
@@ -49,14 +60,18 @@ def build_graph() -> StateGraph:
 # ---------------------------------------------------------------------------
 
 
-def make_app(checkpointer=None):
-    """Compile the graph with an optional checkpointer.
+def make_app(checkpointer=None, store=None):
+    """Compile the graph.
 
-    No checkpointer → stateless (no resume, no history).
-    Pass InMemorySaver() for dev or SqliteSaver for prod.
+    checkpointer — SqliteSaver for pause/resume durability (SqliteSaver or InMemorySaver).
+    store        — SqliteStore for cross-run Exception cache (SqliteStore or InMemoryStore).
+
+    Prod usage:
+        conn = sqlite3.connect("arx.db", check_same_thread=False)
+        app = make_app(SqliteSaver(conn), SqliteStore(conn))
     """
-    return build_graph().compile(checkpointer=checkpointer)
+    return build_graph().compile(checkpointer=checkpointer, store=store)
 
 
-# Default export: InMemorySaver so thread_id / state history work out of the box.
-app = make_app(checkpointer=InMemorySaver())
+# Default module-level export uses in-memory backends (import-safe, no file side effects).
+app = make_app(checkpointer=InMemorySaver(), store=InMemoryStore())
