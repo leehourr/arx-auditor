@@ -268,3 +268,29 @@ print(f"M11 — recursion_limit={_RECURSION_LIMIT}, RetryPolicy(max_attempts=3) 
 # Rule: branch OR accumulate OR pause → LangGraph.
 #       everything else → plain Python.
 print("M10 — no subgraphs, no supervisor. See comments above for why.")
+
+# %% M12 — evals
+# Replays classify_one against 76 real past manual classifications (OWASP).
+# Agreement rate = % where tool bucket matches human bucket exactly.
+# Run after any prompt change to catch regressions before they ship.
+#
+# Ground truth: evals/owasp-76.json — 28 Fix, 15 Suppress, 8 Exception,
+# 3 Already-fixed across OWASP A01–A10. Messy Suppress/Exception calls
+# included intentionally — those are the judgment calls that matter.
+#
+# Target: ~88% agreement. < 80% → prompt regression. 100% → overfit.
+# Healthy deferral on Suppress/Exception is correct, not a bug — those
+# go to the human gate by design.
+from arx_auditor.eval import load_golden, run_eval
+
+print("=" * 60)
+print("  M12 — eval: 76-finding golden set")
+print("=" * 60)
+
+golden = load_golden("evals/owasp-76.json")
+rate = run_eval(golden)
+print(f"  agreement rate: {rate:.0%}  ({int(rate * len(golden))}/{len(golden)} match human)")
+if rate >= 0.80:
+    print("  PASS")
+else:
+    print("  FAIL — prompt regression, review classify.py")
