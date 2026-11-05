@@ -269,6 +269,26 @@ print(f"M11 — recursion_limit={_RECURSION_LIMIT}, RetryPolicy(max_attempts=3) 
 #       everything else → plain Python.
 print("M10 — no subgraphs, no supervisor. See comments above for why.")
 
+# %% M13 — deliverable: emit findings + assemble report
+# After gate approves, two plain-Python nodes run:
+#   emit_findings    → out/<client_id>/findings/NNN-slug.md per verdict
+#   assemble_report  → out/<client_id>/report.html
+#
+# Both are thin I/O nodes — no branching, no accumulation, no LLM.
+# The graph's restraint rule: they don't belong in graph control flow,
+# they just sit at the end as cheap render steps.
+#
+# report_path is written back into AuditState so callers can open it directly.
+print("=" * 60)
+print("  M13 — deliverable")
+print("=" * 60)
+
+report_path = app.get_state(config).values.get("report_path", "")
+if report_path:
+    print(f"  report written → {report_path}")
+else:
+    print("  (run M6/M9 cell first to populate final_verdicts)")
+
 # %% M12 — evals
 # Replays classify_one against 76 real past manual classifications (OWASP).
 # Agreement rate = % where tool bucket matches human bucket exactly.

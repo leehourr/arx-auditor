@@ -10,23 +10,27 @@ from langgraph.types import RetryPolicy
 from arx_auditor.classify import classify_one, fan_out_findings
 from arx_auditor.gate import gate
 from arx_auditor.parse import normalize, parse_scans
+from arx_auditor.report import assemble_report, emit_findings
 from arx_auditor.retrieve import retrieve
 from arx_auditor.state import AuditState
 
 # ---------------------------------------------------------------------------
-# M6 + M9 + M11 — Send fan-out → HITL gate topology + production guardrails
+# M6 + M9 + M11 + M13 — full pipeline
 #
 # Shape:
 #   parse_scans → normalize → retrieve
 #                                └─(fan_out_findings)──▶ classify_one ──┐
 #                                  [one Send per finding]                │
 #                                                                        ▼
-#                                                                      gate ──▶ END
+#                                                                      gate
 #                                                                  [interrupt() on
 #                                                                   Suppress/Exception]
-#
-# All classify_one copies converge before gate runs (scatter-gather).
-# gate reads verdicts (append-reduced), writes final_verdicts (replace).
+#                                                                        │
+#                                                               emit_findings
+#                                                               (one .md per verdict)
+#                                                                        │
+#                                                              assemble_report ──▶ END
+#                                                              (report.html)
 #
 # M11 guardrails:
 #   RetryPolicy(max_attempts=3) on classify_one — survives transient API 503s.
@@ -51,13 +55,17 @@ def build_graph() -> StateGraph:
         retry_policy=RetryPolicy(max_attempts=3),
     )
     g.add_node("gate", gate)
+    g.add_node("emit_findings", emit_findings)
+    g.add_node("assemble_report", assemble_report)
 
     g.add_edge(START, "parse_scans")
     g.add_edge("parse_scans", "normalize")
     g.add_edge("normalize", "retrieve")
     g.add_conditional_edges("retrieve", fan_out_findings, ["classify_one"])
     g.add_edge("classify_one", "gate")
-    g.add_edge("gate", END)
+    g.add_edge("gate", "emit_findings")
+    g.add_edge("emit_findings", "assemble_report")
+    g.add_edge("assemble_report", END)
 
     return g
 
