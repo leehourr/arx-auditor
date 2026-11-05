@@ -1,5 +1,5 @@
 # %% [markdown]
-# # scratch_run — M6 / M7 / M8 interactive harness
+# # scratch_run — M6 / M7 / M8 / M9 / M10 interactive harness
 #
 # Run each `# %%` cell independently in VS Code (Python Interactive).
 # Requires `ANTHROPIC_API_KEY` in the environment — real LLM calls happen in M6.
@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from arx_auditor.graph import make_app
+from arx_auditor.graph import _RECURSION_LIMIT, make_app
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.store.sqlite import SqliteStore
 
@@ -30,7 +30,8 @@ store = SqliteStore(conn_store)
 app = make_app(checkpointer=checkpointer, store=store)
 
 # M7: every run is identified by a thread_id — all its checkpoints share this key
-config = {"configurable": {"thread_id": "debug-run-001"}}
+# M11: recursion_limit caps the step counter — trips if routing loops accidentally
+config = {"recursion_limit": _RECURSION_LIMIT, "configurable": {"thread_id": "debug-run-001"}}
 
 init = {
     "findings": [],
@@ -97,9 +98,9 @@ print("  M7 — time travel demo (re-run classify from earlier checkpoint)")
 print("=" * 60)
 
 history = list(app.get_state_history(config))
-# find the checkpoint where retrieve just finished (next node = classify_one)
+# find the checkpoint where normalize just finished (next node = retrieve)
 pre_classify = next(
-    (s for s in history if s.next and s.next[0] == "classify_one"), None
+    (s for s in history if s.next and s.next[0] == "retrieve"), None
 )
 
 if pre_classify:
@@ -157,7 +158,7 @@ else:
         print(f"  seeded Exception for control_id={seed_control}")
 
         # Run graph on a new thread — the seeded finding should skip the LLM
-        config2 = {"configurable": {"thread_id": "debug-run-002"}}
+        config2 = {"recursion_limit": _RECURSION_LIMIT, "configurable": {"thread_id": "debug-run-002"}}
         init2 = {**init}
         for chunk in app.stream(init2, config=config2, stream_mode="updates"):
             node, update = next(iter(chunk.items()))
@@ -179,7 +180,7 @@ print("=" * 60)
 print("  M9 — HITL gate demo")
 print("=" * 60)
 
-config3 = {"configurable": {"thread_id": "debug-run-003"}}
+config3 = {"recursion_limit": _RECURSION_LIMIT, "configurable": {"thread_id": "debug-run-003"}}
 init3 = {**init}
 
 interrupted_at = None
@@ -233,3 +234,37 @@ if interrupted_at:
                 print(f"    {v['id']:6s}  [{v['bucket']:14s}]  {v['reason'][:55]}")
         else:
             print(f"  [{node}]")
+
+# %% M11 — prebuilts & hardening
+# RetryPolicy: classify_one is decorated with RetryPolicy(max_attempts=3) in
+# graph.py. On a 503 / rate-limit, LangGraph retries that node automatically
+# up to 3 times before propagating the error — no manual try/except needed.
+#
+# recursion_limit: LangGraph counts every node execution as one "step".
+# Without a cap, a buggy routing loop runs until OOM or timeout.
+# _RECURSION_LIMIT = 700 → sized for 200 findings × ~3 steps + slack.
+# If hit in a real run → routing bug, not a large dataset.
+#
+# ReAct agent (create_react_agent): NOT used. classify_one is a single
+# prompt → response call. ReAct is for open-ended tool loops; this isn't one.
+print(f"M11 — recursion_limit={_RECURSION_LIMIT}, RetryPolicy(max_attempts=3) on classify_one")
+
+# %% M10 — subgraphs & supervisor: restraint decision
+# No code runs here — this cell documents the design decision.
+#
+# Subgraphs: a compiled graph plugged into a parent graph as a single node.
+# Useful when a branch has 4+ internal steps or needs isolated testing.
+# arx-auditor does NOT split into framework subgraphs because:
+#   - all three branches (OWASP / CIS / CVE) share AuditState unchanged
+#   - each branch is one classify_one call — not complex enough to encapsulate
+#   - flat graph is easier to read and debug at this scale
+#
+# Supervisor: an LLM node that decides which specialist runs next, in a loop.
+# arx-auditor does NOT use a supervisor because:
+#   - routing is deterministic (finding.framework field → dict lookup)
+#   - a conditional edge already does this in one line, no model call needed
+#   - supervisors add cost and latency for a decision a dict already answers
+#
+# Rule: branch OR accumulate OR pause → LangGraph.
+#       everything else → plain Python.
+print("M10 — no subgraphs, no supervisor. See comments above for why.")
