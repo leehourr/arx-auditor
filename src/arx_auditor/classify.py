@@ -4,7 +4,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.store.base import BaseStore
 from langgraph.types import Send
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from arx_auditor.state import AuditState
 
@@ -24,6 +24,13 @@ _SYSTEM = (
 class _VerdictOut(BaseModel):
     bucket: Literal["Fix", "Suppress", "Exception", "Already-fixed"]
     reason: str
+
+    @field_validator("reason")
+    @classmethod
+    def reason_is_grounded(cls, v: str) -> str:
+        if len(v) < 10:
+            raise ValueError("reason too thin — model dodged the justification")
+        return v
 
 
 _llm = None
